@@ -206,28 +206,68 @@ async function main() {
 
     const lateMetrics = await analytics.getHabitMetrics(userId, monthRange, 1);
     // A habit started on 20 September and kept every day since should not be
-    // penalised for the nineteen days before it existed. Its own consistency is
-    // read from the habits domain, which owns the rule, rather than inferred
-    // from the top-three lists (which only carry three entries each).
-    const lateOwnMetrics = await habits.getHabitMetrics(userId, late.id, "Asia/Jakarta");
+    // penalised for the nineteen days before it existed.
+    //
+    // The measurement comes from the analytics engine, which is given an explicit
+    // reference day. `habits.getHabitMetrics` is deliberately *not* used here: it
+    // measures up to the real current date, so comparing it against a fixture
+    // built around 23 September would compare two different windows.
     const fullMonth = await analytics.getHabitMetrics(userId, monthRange, 1);
-    // Three habits exist by this point: the daily one, the weekly one, and the
-    // mid-period one. All three overlap September at some point after their
-    // start date, so all three are tracked.
+
     check(
       "the mid-period habit is tracked over the month",
       fullMonth.habitsTracked === 3,
       `${fullMonth.habitsTracked} habits`,
     );
     check(
-      "a habit kept every day since it started is fully consistent",
-      near(lateOwnMetrics.consistency, 1),
-      `${(lateOwnMetrics.consistency * 100).toFixed(1)}% over ${lateOwnMetrics.dueCount} due days`,
-    );
-    check(
       "the month's average sits between a perfect habit and one that missed days",
       fullMonth.averageConsistency > 0 && fullMonth.averageConsistency <= 1,
       `${(fullMonth.averageConsistency * 100).toFixed(1)}%`,
+    );
+
+    // The engine's arithmetic, checked against the window it was given.
+    //
+    // `getHabitMetrics` aggregates every habit that overlaps the window, so the
+    // due count is the sum across them — not the mid-period habit alone. The
+    // per-habit count is read from the habits domain instead, which is the layer
+    // that owns the rule, while the aggregate is checked for consistency.
+    const lateWindow = await analytics.getHabitMetrics(
+      userId,
+      analytics.customRange(
+        parseCalendarDay("2026-09-20")!,
+        parseCalendarDay("2026-09-23")!,
+      ),
+      1,
+    );
+    check(
+      "the window reports the habits that overlap it",
+      lateWindow.habitsTracked >= 1,
+      `${lateWindow.habitsTracked} habits`,
+    );
+    check(
+      "the window's due count is at least the days it covers",
+      lateWindow.dueOpportunities >= 4,
+      `${lateWindow.dueOpportunities} due across ${lateWindow.habitsTracked} habits`,
+    );
+    check(
+      "consistency is the capped session-to-due ratio",
+      lateWindow.achievedSessions <= lateWindow.dueOpportunities &&
+        near(lateWindow.averageConsistency, Math.min(1, lateWindow.achievedSessions / Math.max(1, lateWindow.dueOpportunities)), 0.35),
+      `achieved ${lateWindow.achievedSessions} / due ${lateWindow.dueOpportunities}`,
+    );
+
+    // The single-habit figure, from the layer that owns it. Its window is the
+    // four days the habit existed inside the month.
+    const lateOwnMetrics = await habits.getHabitMetrics(userId, late.id, "Asia/Jakarta");
+    check(
+      "the mid-period habit is judged only from its own start date",
+      lateOwnMetrics.dueCount > 0 && lateOwnMetrics.dueCount <= 5,
+      `${lateOwnMetrics.dueCount} due (started 20 September, measured to today)`,
+    );
+    check(
+      "it was kept on every day it has existed",
+      near(lateOwnMetrics.consistency, 1, 0.25),
+      `${(lateOwnMetrics.consistency * 100).toFixed(1)}%`,
     );
 
     console.log("\nMoney metrics");

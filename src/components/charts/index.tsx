@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+
 import { cn } from "@/lib/cn";
 import { useTooltip } from "./chart-tooltip";
 
@@ -35,6 +35,9 @@ export function BarChart({
   className,
   valueFormatter = (v) => String(v),
   emptyLabel = "Belum ada data",
+  /** Axis ticks to draw under the baseline. Chosen by the caller, which knows
+   *  whether the window is days, weeks or months. */
+  ticks,
 }: {
   data: SeriesDatum[];
   token?: string;
@@ -42,8 +45,8 @@ export function BarChart({
   className?: string;
   valueFormatter?: (value: number) => string;
   emptyLabel?: string;
+  ticks?: string[];
 }) {
-  const gradientId = useId();
   const tooltip = useTooltip();
 
   if (data.length === 0) {
@@ -61,6 +64,39 @@ export function BarChart({
       </p>
     );
   }
+
+  /*
+   * A single non-zero point.
+   *
+   * One bar scaled against itself is always full height, which reads as "all of
+   * the things happened" rather than "one thing happened on one day". The value
+   * is stated instead, and the bar is shown at a fixed, unremarkable height so
+   * the shape of the region is not misrepresented.
+   */
+  const nonZero = data.filter((d) => d.value > 0);
+  const isSinglePoint = nonZero.length === 1;
+
+  if (isSinglePoint) {
+    const point = nonZero[0];
+    return (
+      <div className={cn("relative", className)} aria-hidden>
+        <div className="flex flex-col items-center justify-center gap-2" style={{ height }}>
+          <p className="tabular text-2xl font-semibold tracking-tight text-ink">
+            {valueFormatter(point.value)}
+          </p>
+          <p className="text-xs text-ink-subtle">pada {point.label}</p>
+          <p className="max-w-[38ch] text-center text-micro text-ink-faint">
+            Hanya satu hari pada rentang ini yang punya data, jadi tidak ada tren yang
+            bisa dibaca.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Label every bar when there are few enough to fit; otherwise label only the
+  // ends, which is what the previous version always did.
+  const showAllLabels = data.length <= 14;
 
   return (
     <div className={cn("relative", className)} aria-hidden>
@@ -90,7 +126,7 @@ export function BarChart({
                 className="w-full rounded-t-sm transition-colors duration-fast"
                 style={{
                   height: `${percent}%`,
-                  background: `linear-gradient(to top, var(--color-${token}), color-mix(in srgb, var(--color-${token}) 70%, transparent))`,
+                  backgroundColor: `var(--color-${token})`,
                 }}
               />
             </button>
@@ -98,16 +134,37 @@ export function BarChart({
         })}
       </div>
 
-      <div className="mt-2 flex justify-between text-micro text-ink-faint">
-        <span>{data[0].label}</span>
-        <span>{data[data.length - 1].label}</span>
-      </div>
+      {/*
+        Axis labels.
+        Rotated when every bar is labelled, because "23 Sep" is four characters
+        wider than the bar it belongs to at these sizes and would overlap.
+      */}
+      {showAllLabels ? (
+        <div className="mt-1.5 flex gap-[3px]">
+          {data.map((datum, index) => (
+            <span
+              key={`${datum.label}-tick-${index}`}
+              className="min-w-0 flex-1 truncate text-center text-micro leading-none text-ink-faint"
+            >
+              {/* Only the day number: the month is already in the caption. */}
+              {datum.label.split(" ")[0]}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-2 flex justify-between text-micro text-ink-faint">
+          <span>{data[0].label}</span>
+          <span>{data[data.length - 1].label}</span>
+        </div>
+      )}
 
-      <svg width="0" height="0" className="absolute">
-        <defs>
-          <linearGradient id={gradientId} />
-        </defs>
-      </svg>
+      {ticks && ticks.length > 0 && (
+        <div className="mt-2 flex justify-between border-t border-border-subtle pt-2 text-micro text-ink-faint">
+          {ticks.map((tick) => (
+            <span key={tick}>{tick}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

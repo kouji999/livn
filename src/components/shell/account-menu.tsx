@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Settings, UserRound } from "lucide-react";
 import { logoutAction } from "@/domains/auth/actions";
@@ -58,13 +59,13 @@ export function AccountMenu({ user }: { user: SessionUser }) {
         </div>
 
         <div className="p-1">
-          <a
+          <Link
             href="/settings"
             className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-muted transition-colors duration-fast hover:bg-surface-sunken hover:text-ink"
           >
             <Settings className="size-3.5" />
             Pengaturan
-          </a>
+          </Link>
 
           <button
             type="button"

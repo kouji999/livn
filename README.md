@@ -1,4 +1,4 @@
-# Livn — Personal Life OS
+﻿# Livn â€” Personal Life OS
 
 A private system for one person to plan, execute, record, measure and improve their own
 life. Plan, tasks, habits, journal and finance in one connected tool.
@@ -18,15 +18,15 @@ The product answers five questions in a loop:
 
 ```
 PLAN      What am I trying to accomplish?
-  ↓
+  â†“
 DO        What should I do today?
-  ↓
+  â†“
 RECORD    What actually happened?
-  ↓
+  â†“
 MEASURE   How am I progressing?
-  ↓
+  â†“
 REFLECT   What should I change?
-  ↓
+  â†“
 PLAN AGAIN
 ```
 
@@ -61,7 +61,7 @@ effect disabled itself under `prefers-reduced-motion`.
 | Screen | What it is for |
 | --- | --- |
 | **Today** | The daily operating surface: priorities, habits, money, progress, reflection |
-| **Plan** | Areas → Goals → Projects → Milestones → Tasks, in one hierarchy |
+| **Plan** | Areas â†’ Goals â†’ Projects â†’ Milestones â†’ Tasks, in one hierarchy |
 | **Money** | A ledger with derived balances, budgets and savings |
 | **Progress** | Daily through yearly metrics, with like-for-like comparison |
 | **Journal** | Daily entries, life events, and a global timeline |
@@ -76,7 +76,7 @@ These are not aspirations; they are enforced by the architecture.
 decorative statistic, no placeholder chart, and no seed data mixed into a real account.
 
 **Balances are derived, never stored.** An account's balance is
-`openingBalance ± every transaction effect`, recomputed on read. A stored balance and a
+`openingBalance Â± every transaction effect`, recomputed on read. A stored balance and a
 ledger drift apart; one of them is wrong and you cannot tell which.
 
 **Transfers are not income or expense.** Moving money between your own accounts changes
@@ -95,8 +95,8 @@ its period. Removing it would let a week where half the plan was abandoned repor
 perfect week.
 
 **Consistency over streaks.** A habit is measured by how often it was actually kept, not
-by an unbroken run. One missed day does not erase three weeks of work — and weekly
-habits are measured per week, so a perfectly-kept 4×/week habit reads as 100%, not 57%.
+by an unbroken run. One missed day does not erase three weeks of work â€” and weekly
+habits are measured per week, so a perfectly-kept 4Ã—/week habit reads as 100%, not 57%.
 
 ---
 
@@ -107,8 +107,7 @@ src/
   app/                    Next.js App Router
     (marketing)/          Public landing content
     (auth)/               Sign in, sign up
-    (app)/                Authenticated shell: Today, Plan, Money, Progress, Journal
-    api/                  Route handlers (health only)
+    (app)/                Authenticated shell: Today, Plan, Money, Progress, Journal, Settings
   domains/                Business logic, one folder per bounded context
     auth/                 Registration, sessions, starter data
     plan/                 Areas, goals, projects, milestones, tasks
@@ -130,11 +129,11 @@ Nothing in `components/` calculates anything.
 
 | Decision | Reason |
 | --- | --- |
-| **Money is `BigInt` minor units** | Floating point cannot represent `0.1`. A ledger that drifts by a fraction of a cent per row is worse than useless — it is actively misleading. |
+| **Money is `BigInt` minor units** | Floating point cannot represent `0.1`. A ledger that drifts by a fraction of a cent per row is worse than useless â€” it is actively misleading. |
 | **Calendar days are separate from instants** | A transaction at 23:30 in Jakarta is the 23rd locally but the 24th in UTC. `date.ts` keeps the two concepts apart and says which is which. |
 | **Reversing entries, not deletes** | A correction must not rewrite a figure that has already been reported. |
 | **Batched aggregate queries** | Goals, habits and projects compute their metrics for a whole page in one or two grouped queries. A per-row query is an N+1 that grows with usage. |
-| **Vocabulary split from services** | Client components import constants from `domain/vocabulary.ts`. Importing the service would pull `@prisma/adapter-pg` → `pg` → `fs` into the browser bundle and break every page. |
+| **Vocabulary split from services** | Client components import constants from `domain/vocabulary.ts`. Importing the service would pull `@prisma/adapter-pg` â†’ `pg` â†’ `fs` into the browser bundle and break every page. |
 | **Ownership checked on every access** | `assertOwned` scopes each query by `userId`. Relying on the UI to send only your own ids is not a security model. |
 
 ---
@@ -143,15 +142,15 @@ Nothing in `components/` calculates anything.
 
 ### Working
 
-- **Today** — aggregation of tasks, habits, money, goals and reflection
-- **Plan** — areas, goals (manual and derived), projects, milestones, tasks
-- **Habits** — daily/weekly/monthly frequencies, streaks, consistency
-- **Money** — accounts, categories, income, expenses, transfers, adjustments, reversal,
+- **Today** â€” aggregation of tasks, habits, money, goals and reflection
+- **Plan** â€” areas, goals (manual and derived), projects, milestones, tasks
+- **Habits** â€” daily/weekly/monthly frequencies, streaks, consistency
+- **Money** â€” accounts, categories, income, expenses, transfers, adjustments, reversal,
   derived balances, month summaries, category breakdown
-- **Journal** — one entry per day, optional mood/energy/focus, tags, links to goals
+- **Journal** â€” one entry per day, optional mood/energy/focus, tags, links to goals
 - **Life events** and a merged global timeline
-- **Progress** — daily, weekly, monthly and yearly metrics with charts
-- **Authentication** — session-based, hashed tokens, per-user data isolation
+- **Progress** â€” daily, weekly, monthly and yearly metrics with charts
+- **Authentication** â€” session-based, hashed tokens, per-user data isolation
 
 ### Not built yet
 
@@ -159,16 +158,21 @@ Nothing in `components/` calculates anything.
 - Recurring transactions and cash-flow forecasting
 - Stored weekly/monthly reviews
 - Global search
-- Settings, data export, account deletion
+- Data export and account deletion from the interface
 - Attachments
 - Insights and anomaly detection
+
+Eight tables exist in the schema ahead of the features that will use them:
+`Budget`, `SavingsGoal`, `RecurringRule`, `Review`, `Insight`, `Attachment`,
+`MonthlyPlan` and `MonthlyPlanTarget`. They are deliberately defined early so the
+relationships are settled before the code that relies on them is written.
 
 ### Verification
 
 Correctness is checked against the real database, not mocks. Run:
 
 ```powershell
-_tools\verify-all.cmd
+_tools\verify-all.ps1
 ```
 
 | Suite | Covers |
@@ -181,9 +185,17 @@ _tools\verify-all.cmd
 | `verify-analytics` | Period arithmetic, exclusions, day bucketing, comparisons |
 | `verify-finance` | Balances after every operation, reversal, transfers, validation |
 
-Plus browser checks: `scripts/visual-qa.mjs` (route walk, console errors, mobile
-overflow), `scripts/check-mobile.mjs` (tap targets, bottom bar, overlap),
-`scripts/a11y-names.mjs` (accessible names).
+Plus checks that are not behavioural:
+
+| Script | Covers |
+| --- | --- |
+| `visual-qa.mjs` | Route walk, console errors, horizontal overflow |
+| `check-mobile.mjs` | Tap targets, bottom bar, content overlap |
+| `a11y-names.mjs` | Accessible names on every interactive control |
+| `audit-links.ts` | Every internal `href` resolves to a real route |
+| `audit-project.ts` | npm scripts, unused dependencies, README accuracy, table accessors, route states |
+| `audit-encoding.py` | Mojibake in strings that would render as garbage |
+| `check-amount-signs.mjs` | An expense is never displayed as money coming in |
 
 ---
 
@@ -231,8 +243,8 @@ Forwards to the local dev server, so changes appear for the visitor on refresh.
 
 ## Stack
 
-Next.js 15 (App Router) · TypeScript (strict) · Tailwind with design tokens ·
-Prisma 7 with the `@prisma/adapter-pg` driver · PostgreSQL · Zod · Vitest ·
+Next.js 15 (App Router) Â· TypeScript (strict) Â· Tailwind with design tokens Â·
+Prisma 7 with the `@prisma/adapter-pg` driver Â· PostgreSQL Â· Zod Â· Vitest Â·
 Playwright for browser verification.
 
 No charting library: the three shapes needed are hand-built SVG, and the alternative is

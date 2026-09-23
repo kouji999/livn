@@ -78,7 +78,11 @@ export function StatStrip({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-x-4 gap-y-4 border-y border-border-subtle py-4 sm:grid-cols-4",
+        // Two columns until there is genuinely room for four. At 768px a
+        // four-column strip gives each cell about 170px, which is narrower than
+        // "Rp 10.540.000" and forces a wrap that breaks the strip's alignment.
+        "grid grid-cols-2 gap-x-4 gap-y-4 border-y border-border-subtle py-4",
+        "md:grid-cols-3 lg:grid-cols-4",
         className,
       )}
     >

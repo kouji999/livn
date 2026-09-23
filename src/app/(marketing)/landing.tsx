@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 import { GridBackdrop } from "@/components/layout/grid-backdrop";
 import { Wordmark } from "@/components/brand/wordmark";

@@ -189,12 +189,27 @@ export function ProgressView({
     [series],
   );
 
+  /*
+   * Axis ticks.
+   *
+   * With more than a fortnight plotted, a bar cannot be identified by its own
+   * label without overlap, so four evenly spaced dates are given instead. The
+   * first and last are always included, since those are the two a reader looks
+   * for first when orienting on a time axis.
+   */
+  const axisTicks = useMemo(() => {
+    if (series.length <= 14 || series.length < 4) return undefined;
+    const at = (ratio: number) =>
+      formatShortDate(series[Math.round((series.length - 1) * ratio)].date);
+    return [at(0), at(1 / 3), at(2 / 3), at(1)];
+  }, [series]);
+
   const journaledDays = series.filter((point) => point.journaled).length;
   const taskMax = Math.max(...taskSeries.map((d) => d.value), 0);
 
   return (
     <div className={cn("space-y-5", pending && "opacity-70")}>
-      {/* ── Range selector ───────────────────────────────────────────────── */}
+      {/* — Range selector — */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1" role="tablist" aria-label="Rentang waktu">
           {RANGES.map((range) => {
@@ -221,7 +236,7 @@ export function ProgressView({
         <p className="text-xs text-ink-subtle">{rangeLabel}</p>
       </div>
 
-      {/* ── Headline ─────────────────────────────────────────────────────── */}
+      {/* — Headline — */}
       <Card className="px-5 py-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -287,7 +302,7 @@ export function ProgressView({
         </div>
       </Card>
 
-      {/* ── Execution ────────────────────────────────────────────────────── */}
+      {/* — Execution — */}
       <section>
         <SectionLabel className="mb-2">Eksekusi tugas</SectionLabel>
         <StatStrip>
@@ -330,13 +345,14 @@ export function ProgressView({
                 token="accent"
                 valueFormatter={(v) => `${v} tugas`}
                 emptyLabel="Belum ada tugas diselesaikan pada rentang ini"
+                ticks={axisTicks}
               />
             </ChartTooltipProvider>
           </div>
         </Card>
       </section>
 
-      {/* ── Habits ───────────────────────────────────────────────────────── */}
+      {/* — Habits — */}
       <section>
         <SectionLabel className="mb-2">Kebiasaan</SectionLabel>
 
@@ -384,6 +400,7 @@ export function ProgressView({
                     token="positive"
                     valueFormatter={(v) => `${v} sesi`}
                     emptyLabel="Belum ada sesi kebiasaan pada rentang ini"
+                    ticks={axisTicks}
                   />
                 </ChartTooltipProvider>
               </div>
@@ -441,7 +458,7 @@ export function ProgressView({
         )}
       </section>
 
-      {/* ── Money ────────────────────────────────────────────────────────── */}
+      {/* — Money — */}
       <section>
         <SectionLabel className="mb-2">Uang</SectionLabel>
         <StatStrip>
@@ -519,7 +536,7 @@ export function ProgressView({
         )}
       </section>
 
-      {/* ── Journal ──────────────────────────────────────────────────────── */}
+      {/* — Journal — */}
       <section>
         <SectionLabel className="mb-2">Jurnal</SectionLabel>
         <StatStrip>
@@ -564,7 +581,7 @@ export function ProgressView({
         )}
       </section>
 
-      {/* ── Goals ────────────────────────────────────────────────────────── */}
+      {/* — Goals — */}
       <section>
         <div className="mb-2 flex items-center justify-between gap-2">
           <SectionLabel>Tujuan</SectionLabel>
@@ -701,7 +718,7 @@ export function ProgressView({
         )}
       </section>
 
-      {/* ── Projects ─────────────────────────────────────────────────────── */}
+      {/* — Projects — */}
       {projects.length > 0 && (
         <section>
           <div className="mb-2 flex items-center justify-between gap-2">

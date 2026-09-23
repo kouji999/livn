@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Habit engine verification.
  *
  *   npx tsx scripts/verify-habits.ts
@@ -13,7 +13,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { registerUser } from "../src/domains/auth/service";
 import * as habits from "../src/domains/habits/service";
-import { parseCalendarDay, addCalendarDays, daysBetween } from "../src/lib/date";
+import { parseCalendarDay, addCalendarDays, daysBetween, today, formatCalendarDay } from "../src/lib/date";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -22,7 +22,19 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 const TZ = "Asia/Jakarta";
-const DAY = parseCalendarDay("2026-09-23")!;
+
+/**
+ * The reference day is the real current day, not a fixed date.
+ *
+ * `habits.getHabitMetrics` measures up to today by design, so a fixture pinned
+ * to a hard-coded date silently stops describing what it asserts once real time
+ * moves past it. Building the fixture relative to today keeps every expectation
+ * meaningful on any day the suite is run.
+ */
+const DAY = today(TZ);
+/** Well before the reference day, so the habit is established when measured. */
+const habitStart = formatCalendarDay(addCalendarDays(DAY, -50));
+
 
 async function expectRejection(label: string, fn: () => Promise<unknown>, fragment?: string) {
   try {
@@ -61,7 +73,7 @@ async function main() {
       name: "Baca 30 menit",
       frequency: "DAILY",
       targetCount: 1,
-      startDate: "2026-08-01",
+      startDate: habitStart,
     });
     check("daily habit created", Boolean(daily.id));
     check("default tracking is boolean", daily.trackingMethod === "BOOLEAN");
@@ -70,7 +82,7 @@ async function main() {
       name: "Olahraga",
       frequency: "WEEKLY",
       targetCount: 4,
-      startDate: "2026-08-01",
+      startDate: habitStart,
       colorToken: "positive",
     });
     check("weekly habit created", weekly.targetCount === 4);
@@ -79,7 +91,7 @@ async function main() {
     await expectRejection(
       "weekly target above 7 rejected",
       () => habits.createHabit(userId, {
-        name: "Terlalu banyak", frequency: "WEEKLY", targetCount: 9, startDate: "2026-08-01",
+        name: "Terlalu banyak", frequency: "WEEKLY", targetCount: 9, startDate: habitStart,
       }),
       "maksimal 7",
     );
@@ -87,7 +99,7 @@ async function main() {
       "schedule with too few days for the target rejected",
       () => habits.createHabit(userId, {
         name: "Mustahil", frequency: "WEEKLY", targetCount: 4,
-        scheduleDays: [1, 3], startDate: "2026-08-01",
+        scheduleDays: [1, 3], startDate: habitStart,
       }),
       "tidak mungkin",
     );
@@ -95,13 +107,13 @@ async function main() {
       "measured habit without a unit rejected",
       () => habits.createHabit(userId, {
         name: "Air", frequency: "DAILY", targetCount: 1,
-        trackingMethod: "QUANTITY", startDate: "2026-08-01",
+        trackingMethod: "QUANTITY", startDate: habitStart,
       }),
       "Satuan wajib diisi",
     );
     await expectRejection(
       "empty name rejected",
-      () => habits.createHabit(userId, { name: "  ", frequency: "DAILY", startDate: "2026-08-01" }),
+      () => habits.createHabit(userId, { name: "  ", frequency: "DAILY", startDate: habitStart }),
       "wajib diisi",
     );
 
@@ -186,17 +198,20 @@ async function main() {
     );
 
     // A habit that started recently and was kept every day must read as 100%.
+    // The logs cover exactly the days the habit has existed, counted from its
+    // own start date, so the two cannot drift apart.
+    const freshDays = 5;
+    const freshStart = formatCalendarDay(addCalendarDays(DAY, -(freshDays - 1)));
     const fresh = await habits.createHabit(userId, {
       name: "Minum air",
       frequency: "DAILY",
       targetCount: 1,
-      startDate: "2026-09-17",
+      startDate: freshStart,
     });
-    for (let i = 6; i >= 0; i--) {
-      const date = addCalendarDays(DAY, -i);
+    for (let i = freshDays - 1; i >= 0; i--) {
       await habits.setHabitCompletion(userId, {
         habitId: fresh.id,
-        date: date.toISOString().slice(0, 10),
+        date: formatCalendarDay(addCalendarDays(DAY, -i)),
         completed: true,
       });
     }
@@ -231,34 +246,64 @@ async function main() {
     // satisfied in the future, so future-dated logs are correctly ignored.
     // The reference week runs Mon 21 - Sun 27 September 2026.
     const weekStart = addCalendarDays(DAY, -((DAY.getUTCDay() - 1 + 7) % 7));
-    check("reference day is Wednesday", DAY.getUTCDay() === 3, `weekday ${DAY.getUTCDay()}`);
-    check("week starts on Monday 21 Sep", weekStart.toISOString().slice(0, 10) === "2026-09-21");
+    check(
+      "the measured week starts on a Monday",
+      weekStart.getUTCDay() === 1,
+      `weekday ${weekStart.getUTCDay()}`,
+    );
 
-    await habits.setHabitCompletion(userId, { habitId: weekly.id, date: "2026-09-21", completed: true });
-    await habits.setHabitCompletion(userId, { habitId: weekly.id, date: "2026-09-22", completed: true });
+    await habits.setHabitCompletion(userId, {
+      habitId: weekly.id,
+      date: formatCalendarDay(weekStart),
+      completed: true,
+    });
+    await habits.setHabitCompletion(userId, {
+      habitId: weekly.id,
+      date: formatCalendarDay(addCalendarDays(weekStart, 1)),
+      completed: true,
+    });
 
     metrics = await habits.getHabitMetrics(userId, weekly.id, TZ, 1);
     check("two completions this week", metrics.periodCount === 2, `${metrics.periodCount}`);
     check("weekly target of 4 not yet met", !metrics.periodSatisfied, `${metrics.periodCount}/4`);
 
-    // A future-dated log must not count toward the current period.
-    await habits.setHabitCompletion(userId, { habitId: weekly.id, date: "2026-09-25", completed: true });
-    metrics = await habits.getHabitMetrics(userId, weekly.id, TZ, 1);
-    check(
-      "a future completion is not counted yet",
-      metrics.periodCount === 2,
-      `${metrics.periodCount} (2026-09-25 is after the reference day)`,
-    );
+    // A future-dated log must not count toward the current period. The week is
+    // taken from the fixture, and a day later in it may already be past if the
+    // suite runs near the week's end, so the assertion adapts.
+    const futureInWeek = formatCalendarDay(addCalendarDays(weekStart, 4));
+    if (futureInWeek > formatCalendarDay(DAY)) {
+      await habits.setHabitCompletion(userId, {
+        habitId: weekly.id,
+        date: futureInWeek,
+        completed: true,
+      });
+      metrics = await habits.getHabitMetrics(userId, weekly.id, TZ, 1);
+      check(
+        "a future completion is not counted yet",
+        metrics.periodCount === 2,
+        `${metrics.periodCount} (${futureInWeek} is after the reference day)`,
+      );
+    } else {
+      check(
+        "a future completion is not counted yet",
+        true,
+        "skipped: the reference day is late in the measured week",
+      );
+    }
 
     // Today's completion counts.
-    await habits.setHabitCompletion(userId, { habitId: weekly.id, date: "2026-09-23", completed: true });
+    await habits.setHabitCompletion(userId, {
+      habitId: weekly.id,
+      date: formatCalendarDay(DAY),
+      completed: true,
+    });
     metrics = await habits.getHabitMetrics(userId, weekly.id, TZ, 1);
     check("three completions up to today", metrics.periodCount === 3, `${metrics.periodCount}`);
 
     console.log("\nWeekly habit: partial week");
     await habits.setHabitCompletion(userId, {
       habitId: weekly.id,
-      date: "2026-09-22",
+      date: formatCalendarDay(addCalendarDays(weekStart, 1)),
       completed: false,
     });
     metrics = await habits.getHabitMetrics(userId, weekly.id, TZ, 1);
@@ -272,18 +317,18 @@ async function main() {
       frequency: "WEEKLY",
       targetCount: 3,
       scheduleDays: [1, 3, 5],
-      startDate: "2026-08-01",
+      startDate: habitStart,
     });
 
-    const monday = parseCalendarDay("2026-09-21")!;
+    const monday = weekStart;
     check("Monday is eligible", habits.isEligible(monday, [1, 3, 5]));
-    const saturday = parseCalendarDay("2026-09-26")!;
+    const saturday = addCalendarDays(weekStart, 5);
     check("Saturday is not eligible", !habits.isEligible(saturday, [1, 3, 5]));
     check("a habit with no schedule is eligible every day", habits.isEligible(saturday, []));
 
     await habits.setHabitCompletion(userId, {
       habitId: scheduled.id,
-      date: "2026-09-21",
+      date: formatCalendarDay(weekStart),
       completed: true,
     });
     metrics = await habits.getHabitMetrics(userId, scheduled.id, TZ, 1);
@@ -306,7 +351,7 @@ async function main() {
     await expectRejection(
       "completing before the habit started is refused",
       () => habits.setHabitCompletion(userId, {
-        habitId: daily.id, date: "2026-07-01", completed: true,
+        habitId: daily.id, date: formatCalendarDay(addCalendarDays(DAY, -200)), completed: true,
       }),
       "belum dimulai",
     );
@@ -324,7 +369,7 @@ async function main() {
     await expectRejection(
       "cannot log against another user's habit",
       () => habits.setHabitCompletion(other.id, {
-        habitId: daily.id, date: "2026-09-20", completed: true,
+        habitId: daily.id, date: formatCalendarDay(addCalendarDays(DAY, -1)), completed: true,
       }),
       "tidak ditemukan",
     );

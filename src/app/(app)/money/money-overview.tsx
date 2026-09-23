@@ -406,6 +406,14 @@ export function MoneyOverview({
 }
 
 /** Sign and colour for a transaction's amount. */
+/**
+ * Sign and colour for a transaction's amount.
+ *
+ * Direction comes from `type`, never from the sign of `amount`. The ledger stores
+ * an expense as a *positive* number and lets `type` carry the direction, so a
+ * check like `value > 0n` reports every expense as money coming in. Only an
+ * `ADJUSTMENT` is genuinely signed, because a correction can move either way.
+ */
 function AmountLabel({
   amount,
   type,
@@ -416,17 +424,20 @@ function AmountLabel({
   currency: string;
 }) {
   const value = BigInt(amount);
-  const abs = value < 0n ? -value : value;
+  const magnitude = value < 0n ? -value : value;
 
   if (type === "TRANSFER") {
-    return <span className="text-ink-muted">{formatMoney(abs, currency)}</span>;
+    return <span className="text-ink-muted">{formatMoney(magnitude, currency)}</span>;
   }
 
-  const positive = type === "INCOME" || value > 0n;
+  // An adjustment's sign is its direction; income and expense are decided by
+  // type alone.
+  const incoming = type === "INCOME" || (type === "ADJUSTMENT" && value > 0n);
+
   return (
-    <span className={positive ? "text-positive" : "text-negative"}>
-      {positive ? "+" : "-"}
-      {formatMoney(abs, currency)}
+    <span className={incoming ? "text-positive" : "text-negative"}>
+      {incoming ? "+" : "-"}
+      {formatMoney(magnitude, currency)}
     </span>
   );
 }
@@ -551,13 +562,20 @@ function AccountCard({ account, currency }: { account: AccountItem; currency: st
         <div className="flex items-start gap-3">
           <RecordIcon icon={account.iconName} token={account.colorToken} size="md" />
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
+            {/*
+              The account name already says what it is, so the type is shown only
+              when it adds something: "BCA" benefits from "Bank", "Tunai" does
+              not benefit from "Tunai". Repeating the name as a badge was noise.
+            */}
+            <div className="flex items-baseline justify-between gap-2">
               <p className="truncate text-sm font-medium text-ink">{account.name}</p>
-              <StatusBadge domain="account" value={account.type} />
+              {account.institution && (
+                <span className="shrink-0 text-micro text-ink-faint">
+                  {account.institution}
+                </span>
+              )}
             </div>
-            {account.institution && (
-              <p className="mt-0.5 truncate text-micro text-ink-faint">{account.institution}</p>
-            )}
+
             <p
               className={cn(
                 "tabular mt-2 text-lg font-semibold tracking-tight",
@@ -566,9 +584,16 @@ function AccountCard({ account, currency }: { account: AccountItem; currency: st
             >
               {formatMoney(balance, account.currency || currency)}
             </p>
-            <p className="tabular mt-0.5 text-micro text-ink-faint">
-              {account.transactionCount} transaksi
-              {closed && " - ditutup"}
+
+            <p className="tabular mt-0.5 flex items-center gap-2 text-micro text-ink-faint">
+              <span>{account.transactionCount} transaksi</span>
+              {/* Only surfaced when non-zero, so a healthy account stays quiet. */}
+              {BigInt(account.transfersIn) > 0n && (
+                <span className="text-info">
+                  +{formatMoney(BigInt(account.transfersIn), account.currency || currency)}
+                </span>
+              )}
+              {closed && <span className="text-warning">ditutup</span>}
             </p>
           </div>
         </div>

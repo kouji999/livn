@@ -16,7 +16,7 @@ import { registerUser } from "../src/domains/auth/service";
 import * as journal from "../src/domains/journal/service";
 import * as tasks from "../src/domains/plan/tasks";
 import * as finance from "../src/domains/finance/service";
-import { parseCalendarDay, formatCalendarDay, addCalendarDays } from "../src/lib/date";
+import { parseCalendarDay, formatCalendarDay, addCalendarDays, today } from "../src/lib/date";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -305,23 +305,46 @@ async function main() {
       occurredOn: DAY_KEY,
       description: "Salah catat",
     });
-    const beforeReverse = await journal.getTimeline(userId, { from: DAY, to: DAY, limit: 100 });
-    check("the expense is on the timeline before reversal", beforeReverse.some((i) => i.id === `transaction-${snack.id}`));
+
+    // A reversal is stamped with the real current day, not the fixture day, so
+    // the window has to reach forward far enough to contain it. Searching only
+    // up to DAY would miss the reversal row and leave the original counted.
+    const reverseWindowTo = addCalendarDays(today("Asia/Jakarta"), 1);
+
+    const beforeReverse = await journal.getTimeline(userId, {
+      from: DAY,
+      to: reverseWindowTo,
+      limit: 200,
+    });
+    check(
+      "the expense is on the timeline before reversal",
+      beforeReverse.some((i) => i.id === `transaction-${snack.id}`),
+    );
 
     await finance.reverseTransaction(userId, snack.id);
-    const afterReverse = await journal.getTimeline(userId, { from: DAY, to: DAY, limit: 100 });
+
+    const afterReverse = await journal.getTimeline(userId, {
+      from: DAY,
+      to: reverseWindowTo,
+      limit: 200,
+    });
     check(
       "the reversed expense is gone from the timeline",
       !afterReverse.some((i) => i.id === `transaction-${snack.id}`),
     );
 
     console.log("\nTimeline summary");
-    const summary = await journal.getTimelineSummary(userId, addCalendarDays(DAY, -7), DAY);
+    // Reaches the reversal day, which is stamped with the real current date.
+    const summary = await journal.getTimelineSummary(userId, addCalendarDays(DAY, -7), reverseWindowTo);
     check("counts events", summary.events === 2, `${summary.events}`);
     // Four entries fall in the last seven days: 23, 22, 20 and 19 September.
     check("counts journals in the window", summary.journals === 4, `${summary.journals}`);
     check("counts completed tasks", summary.tasks >= 1, `${summary.tasks}`);
-    check("net money is income minus expense", summary.netMoney === 500_000n - 85_000n, `${summary.netMoney}`);
+    check(
+      "net money is income minus expense, with the cancelled row excluded",
+      summary.netMoney === 500_000n - 85_000n,
+      `${summary.netMoney}`,
+    );
 
     console.log("\nDate range filtering");
     const narrow = await journal.getTimeline(userId, {

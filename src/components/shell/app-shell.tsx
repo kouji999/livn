@@ -50,13 +50,14 @@ export async function AppShell({
 
           <SidebarNav />
 
-          <div className="mt-auto pt-4">
-            <div className="hidden lg:block">
-              <AccountMenu user={user} />
-            </div>
-            <div className="flex justify-center lg:hidden">
-              <AccountMenu user={user} />
-            </div>
+          {/*
+            The account control is pinned to the bottom rather than floated after
+            the nav. On a tall window that leaves a gap, so a divider marks where
+            navigation ends and account controls begin — otherwise the avatar
+            reads as an orphaned element at the far edge.
+          */}
+          <div className="mt-auto border-t border-border-subtle pt-3">
+            <AccountMenu user={user} />
           </div>
         </aside>
 
