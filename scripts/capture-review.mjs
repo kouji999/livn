@@ -32,6 +32,7 @@ const ROUTES = [
   ["/money/transactions", "ledger"],
   ["/progress", "progress"],
   ["/journal", "journal"],
+  ["/settings", "settings"],
 ];
 
 async function main() {
