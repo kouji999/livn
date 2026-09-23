@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { AlertTriangle, Check, Globe } from "lucide-react";
 import { Card, CardHeader, SectionLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { RecordIcon } from "@/components/ui/record-icon";
+import { Avatar } from "@/components/brand/avatar";
 import { cn } from "@/lib/cn";
 import {
   CURRENCY_OPTIONS,
@@ -27,12 +29,12 @@ import { PasswordChangeForm } from "./password-change-form";
  *
  * Three groups, ordered by how much they affect the stored numbers:
  *
- *   1. Identity — who the data belongs to. Read-only here; changing an email or
- *      a password has its own flow because both are security-relevant.
- *   2. Measurement — time zone, week start, currency. These change how existing
+ *   1. Identity - who the data belongs to. Read-only here; the name and avatar
+ *      have their own page, and credentials have their own flow.
+ *   2. Measurement - time zone, week start, currency. These change how existing
  *      records are filed and totalled, so the page states that plainly instead
  *      of presenting them as cosmetic toggles.
- *   3. Appearance — theme and language. Presentation only.
+ *   3. Appearance - theme and language. Presentation only.
  *
  * The order matters: a person scrolling this page meets the consequential
  * settings before the shallow ones.
@@ -41,6 +43,10 @@ import { PasswordChangeForm } from "./password-change-form";
 type SettingsProfile = {
   email: string;
   displayName: string;
+  headline: string | null;
+  avatarStyle: string;
+  avatarColor: string;
+  avatarIcon: string | null;
   timeZone: string;
   locale: string;
   currency: string;
@@ -54,8 +60,10 @@ export function SettingsView({ profile }: { profile: SettingsProfile }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
 
+  // No `displayName` here: the name is presentation and lives on the profile
+  // page. This form carries only the settings that change how numbers are
+  // computed or displayed.
   const [form, setForm] = useState({
-    displayName: profile.displayName,
     timeZone: profile.timeZone,
     locale: profile.locale,
     currency: profile.currency,
@@ -71,7 +79,6 @@ export function SettingsView({ profile }: { profile: SettingsProfile }) {
   const currencyChanged = form.currency !== profile.currency;
 
   const dirty =
-    form.displayName !== profile.displayName ||
     zoneChanged ||
     weekChanged ||
     currencyChanged ||
@@ -126,16 +133,41 @@ export function SettingsView({ profile }: { profile: SettingsProfile }) {
           description="Identitas pemilik data. Tidak bisa diubah dari sini."
         />
         <div className="space-y-3 px-5 pb-5">
-          <Input
-            label="Nama tampilan"
-            value={form.displayName}
-            onChange={(e) => set("displayName", e.target.value)}
-            error={errors.displayName}
-            hint="Dipakai untuk sapaan di halaman Today"
-          />
+          {/*
+            The name and avatar live on the profile page rather than here. They
+            are presentation, and this page is about how numbers are computed —
+            two different concerns that would be confusing to interleave.
+          */}
+          <Link
+            href="/settings/profile"
+            className="flex items-center gap-3 rounded-md border border-border px-3.5 py-3 transition-colors duration-fast hover:border-border-strong hover:bg-surface-sunken"
+          >
+            <Avatar
+              name={profile.displayName}
+              style={profile.avatarStyle}
+              colorToken={profile.avatarColor}
+              iconName={profile.avatarIcon}
+              size="md"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-ink">
+                {profile.displayName}
+              </span>
+              <span className="block truncate text-xs text-ink-subtle">
+                {profile.headline ?? "Atur nama, tanda pengenal dan deskripsi"}
+              </span>
+            </span>
+            <span className="shrink-0 text-micro font-medium text-accent">Ubah profil</span>
+          </Link>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Email" value={profile.email} readOnly disabled hint="Hubungi dukungan untuk mengubah" />
+            <Input
+              label="Email"
+              value={profile.email}
+              readOnly
+              disabled
+              hint="Tidak bisa diubah dari antarmuka"
+            />
             <div className="flex items-end">
               <p className="pb-2 text-micro text-ink-faint">
                 Akun dibuat{" "}
@@ -322,7 +354,6 @@ export function SettingsView({ profile }: { profile: SettingsProfile }) {
             size="md"
             onClick={() => {
               setForm({
-                displayName: profile.displayName,
                 timeZone: profile.timeZone,
                 locale: profile.locale,
                 currency: profile.currency,

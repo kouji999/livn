@@ -31,7 +31,20 @@ model User {
   locale        String  @default("id-ID")
   currency      String  @default("IDR")
 
-  // Preferences that shape presentation only — never business logic.
+  // Profile. Optional self-description shown in the shell and on the profile
+  // page; none of it affects how records are stored or calculated.
+  headline    String?
+  bio         String?
+  /// Free-text place, e.g. "Jakarta". Not a time zone - that lives below.
+  location    String?
+  /// How the avatar is drawn: "initials" uses the display name, any other value
+  /// is a colour token for a solid mark. Stored as a choice rather than an
+  /// uploaded file so the product needs no object storage to be complete.
+  avatarStyle String  @default("initials")
+  avatarColor String  @default("accent")
+  avatarIcon  String?
+
+  // Preferences that shape presentation only - never business logic.
   weekStartsOn        Int     @default(1) // 1 = Monday
   themePreference     String  @default("system") // system | light | dark
   onboardingCompleted Boolean @default(false)
@@ -82,6 +95,25 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// One authentication attempt.
+///
+/// Append-only: nothing is ever updated, and the count for a window is a query
+/// rather than a stored counter. A counter can drift (a missed decrement, a
+/// restart, a second process) and the failure is invisible; rows cannot.
+///
+/// Deliberately not linked to `User`, because a failed attempt for an address
+/// that does not exist still has to be recorded or the limit is bypassable by
+/// guessing only unknown addresses.
+model RateLimitAttempt {
+  id        String   @id @default(cuid())
+  /// Caller-composed, e.g. "loginEmail:a@b.c" or "loginIp:1.2.3.4".
+  scope     String
+  createdAt DateTime @default(now())
+
+  @@index([scope, createdAt])
+  @@index([createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

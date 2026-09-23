@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { errors } from "@/lib/errors";
 import {
@@ -32,6 +33,45 @@ export type PublicUser = {
   email: string;
   displayName: string;
 };
+
+/**
+ * A structurally valid bcrypt hash, used to spend the same time on a failed
+ * sign-in for an account that does not exist as for one that does.
+ *
+ * Generated once at module load rather than written as a literal, because a
+ * hand-written string is easy to get subtly wrong and bcrypt then rejects it
+ * before doing any work. That failure is silent: the code looks like it defends
+ * against a timing attack and returns in 0.2ms instead of 238ms.
+ *
+ * Cost 12 matches `hashPassword`, so the work is comparable.
+ *
+ * Generated rather than hard-coded so it cannot drift from the configured cost
+ * factor: if the cost changes, this changes with it.
+ */
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+  "livn-timing-equaliser-not-a-real-password",
+  12,
+);
+
+/**
+ * Confirms the dummy hash is usable, once, at startup.
+ *
+ * A cheap assertion that catches the exact regression described above: if the
+ * constant ever stops being a valid bcrypt hash, sign-in fails immediately and
+ * this throws at boot rather than silently leaking account existence.
+ */
+void (async () => {
+  const start = performance.now();
+  await bcrypt.compare("warm-up", DUMMY_PASSWORD_HASH);
+  const elapsed = performance.now() - start;
+
+  if (elapsed < 50) {
+    throw new Error(
+      `DUMMY_PASSWORD_HASH is not producing a real bcrypt comparison (${elapsed.toFixed(1)}ms). ` +
+        "Sign-in timing would leak whether an account exists.",
+    );
+  }
+})();
 
 /**
  * Creates a user together with everything the product needs to be usable on
@@ -170,15 +210,29 @@ export async function authenticate(
     select: { id: true, email: true, displayName: true, passwordHash: true },
   });
 
-  // A single generic message for both "no such user" and "wrong password",
-  // so the endpoint cannot be used to enumerate registered addresses.
+  // A single generic message for both "no such user" and "wrong password", so
+  // the response body cannot be used to enumerate registered addresses.
   const genericFailure = errors.validation("Email atau kata sandi salah.", {
     password: "Email atau kata sandi salah.",
   });
 
   if (!user) {
-    // Hash anyway so a missing user and a wrong password take similar time.
-    await verifyPassword(data.password, "$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidin");
+    /*
+     * Spend the same time as a real verification before failing.
+     *
+     * Without this the two paths are trivially distinguishable — a real check
+     * costs ~238ms of bcrypt, a missing row returns immediately — and the
+     * endpoint becomes an account-enumeration oracle. An attacker measures the
+     * response time, learns which addresses exist, then focuses their password
+     * guessing on those (rate limiting aside, that is the information leak).
+     *
+     * The dummy hash must be *structurally valid*. An earlier version used a
+     * hand-written string whose format bcrypt rejected outright, and `compare`
+     * returned in 0.2ms instead of 238ms — the defence was in the code and doing
+     * nothing. `DUMMY_PASSWORD_HASH` is generated at module load for exactly
+     * that reason; see its definition.
+     */
+    await verifyPassword(data.password, DUMMY_PASSWORD_HASH);
     throw genericFailure;
   }
 
@@ -243,7 +297,15 @@ export async function getUserProfile(userId: string) {
       weekStartsOn: true,
       themePreference: true,
       onboardingCompleted: true,
+      // Profile presentation, shown in the shell and on the profile page.
+      headline: true,
+      bio: true,
+      location: true,
+      avatarStyle: true,
+      avatarColor: true,
+      avatarIcon: true,
       createdAt: true,
+      lastSeenAt: true,
     },
   });
   if (!user) throw errors.notFound("Pengguna");

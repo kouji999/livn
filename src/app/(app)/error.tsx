@@ -24,6 +24,12 @@ export default function AppError({
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-5 px-5 text-center">
+      {/*
+        Deliberately not a link. If a rendering fault is systemic rather than
+        page-specific, a logo that navigates would give the reader a way to loop
+        through the same error. The two buttons below are the intended exits,
+        and one of them is a full page load rather than a client navigation.
+      */}
       <Wordmark size="md" />
       <div className="space-y-1.5">
         <p className="text-xl font-semibold tracking-tight text-ink">

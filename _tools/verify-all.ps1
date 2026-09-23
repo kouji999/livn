@@ -1,4 +1,4 @@
-# Livn - run every verification and audit.
+﻿# Livn - run every verification and audit.
 #
 #   .\_tools\verify-all.ps1
 #
@@ -67,6 +67,7 @@ $suites = @(
   'verify-journal'
   'verify-analytics'
   'verify-finance'
+  'verify-profile'
 )
 
 foreach ($suite in $suites) {
@@ -76,7 +77,7 @@ foreach ($suite in $suites) {
 Write-Host ''
 Write-Host '############ Static audits ############' -ForegroundColor Yellow
 
-foreach ($audit in @('audit-links', 'audit-project')) {
+foreach ($audit in @('audit-links', 'audit-project', 'audit-security')) {
   Invoke-Check -Name $audit -Runner 'tsx' -Path "scripts\$audit.ts"
 }
 

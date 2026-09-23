@@ -27,7 +27,8 @@ import { SUPPORTED_LOCALES, isSupportedTimeZone } from "./settings";
  */
 
 export const settingsSchema = z.object({
-  displayName: z.string().trim().min(1, "Nama wajib diisi.").max(80, "Maksimal 80 karakter."),
+  // No displayName: the name is profile presentation, handled by
+  // `domains/profile`. Keeping it here would mean two forms that both write it.
   timeZone: z.string().trim().min(1, "Zona waktu wajib dipilih."),
   locale: z.enum(SUPPORTED_LOCALES),
   currency: z.string().trim().length(3, "Kode mata uang 3 huruf."),
@@ -72,7 +73,6 @@ export const updateSettingsAction = defineAction(async (input: unknown) => {
   await db.user.update({
     where: { id: user.id },
     data: {
-      displayName: data.displayName,
       timeZone: data.timeZone,
       locale: data.locale,
       currency,

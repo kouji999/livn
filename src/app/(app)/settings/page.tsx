@@ -27,6 +27,10 @@ export default async function SettingsPage() {
         profile={{
           email: profile.email,
           displayName: profile.displayName,
+          headline: profile.headline,
+          avatarStyle: profile.avatarStyle,
+          avatarColor: profile.avatarColor,
+          avatarIcon: profile.avatarIcon,
           timeZone: profile.timeZone,
           locale: profile.locale,
           currency: profile.currency,

@@ -20,7 +20,7 @@ export default async function LoginPage({
     <div className="flex min-h-dvh flex-col items-center justify-center px-5 py-12">
       <div className="w-full max-w-[22rem]">
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
-          <Wordmark size="lg" />
+          <Wordmark size="lg" href="/" label="Livn, kembali ke halaman utama" />
           <p className="text-sm text-ink-subtle">
             Tempat hidup kamu dicatat dan diukur.
           </p>

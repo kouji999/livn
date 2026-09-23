@@ -33,7 +33,14 @@ export default function AppLoading() {
         </StatStrip>
 
         <Card>
+          {/*
+            `asBlock` because the title and description are skeleton elements,
+            which render as `<div>`. Putting a block element inside the default
+            `<p>` is invalid HTML, and React reports it as a hydration mismatch:
+            `<div> cannot be a descendant of <p>`.
+          */}
           <CardHeader
+            asBlock
             title={<Skeleton className="h-3.5 w-32" />}
             description={<Skeleton className="mt-1 h-2.5 w-48" />}
           />
@@ -43,7 +50,7 @@ export default function AppLoading() {
         </Card>
 
         <Card>
-          <CardHeader title={<Skeleton className="h-3.5 w-28" />} />
+          <CardHeader asBlock title={<Skeleton className="h-3.5 w-28" />} />
           <div className="space-y-3 px-5 pb-5">
             {Array.from({ length: 3 }).map((_, index) => (
               <div key={index} className="space-y-2">

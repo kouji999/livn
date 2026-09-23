@@ -12,7 +12,7 @@ import { ButtonLink } from "@/components/ui/button";
 export default function NotFound() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-5 px-5 text-center">
-      <Wordmark size="md" />
+      <Wordmark size="md" href="/" label="Livn, ke halaman utama" />
       <div className="space-y-1.5">
         <p className="text-xl font-semibold tracking-tight text-ink">
           Halaman ini tidak ada

@@ -41,13 +41,26 @@ export function CardHeader({
   action,
   className,
   size = "md",
+  /**
+   * Render the title and description as `div` instead of `h2`/`p`.
+   *
+   * Needed when either prop receives block-level content, such as a skeleton
+   * placeholder. A `<div>` inside a `<p>` is invalid HTML and React reports it
+   * as a hydration mismatch, so the caller opts into the block form rather than
+   * the component guessing from the ReactNode type.
+   */
+  asBlock = false,
 }: {
   title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   className?: string;
   size?: "sm" | "md";
+  asBlock?: boolean;
 }) {
+  const TitleTag = asBlock ? "div" : "h2";
+  const DescriptionTag = asBlock ? "div" : "p";
+
   return (
     <header
       className={cn(
@@ -57,9 +70,20 @@ export function CardHeader({
       )}
     >
       <div className="min-w-0">
-        <h2 className="text-sm font-semibold tracking-tight text-ink">{title}</h2>
+        <TitleTag
+          className={cn(
+            "text-sm font-semibold tracking-tight text-ink",
+            asBlock && "min-h-[1.25rem]",
+          )}
+        >
+          {title}
+        </TitleTag>
         {description && (
-          <p className="mt-0.5 text-xs text-ink-subtle">{description}</p>
+          <DescriptionTag
+            className={cn("mt-0.5 text-xs text-ink-subtle", asBlock && "min-h-[1rem]")}
+          >
+            {description}
+          </DescriptionTag>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}

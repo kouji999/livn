@@ -152,7 +152,7 @@ export function JournalView({
       </StatStrip>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        {/* —— Writing column ——————————————————————————————————————————————— */}
+        {/* — Writing column — */}
         <div className="min-w-0 space-y-5">
           {/* Day picker. Three taps cover almost every case. */}
           <div className="flex flex-wrap items-center gap-2">
@@ -312,7 +312,7 @@ export function JournalView({
           </Link>
         </div>
 
-        {/* —— History column ——————————————————————————————————————————————— */}
+        {/* — History column — */}
         <aside className="space-y-5">
           <Card>
             <CardHeader size="sm" title="Catatan sebelumnya" />

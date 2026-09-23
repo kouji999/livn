@@ -35,7 +35,7 @@ import type { Account, Prisma, Transaction } from "@/generated/prisma/client";
  *   ADJUSTMENT  +amount   on accountId (signed by `adjustmentDirection`)
  */
 
-// ——————————————————————————————————————————————————————————————————— schemas ——
+// — schemas —
 
 // Imported for the Zod schemas below, and re-exported so a server-side caller
 // can keep importing from the service. Client components must import from
@@ -119,7 +119,7 @@ export const transactionUpdateSchema = z.object({
 export type AccountCreateInput = z.infer<typeof accountCreateSchema>;
 export type TransactionCreateInput = z.infer<typeof transactionCreateSchema>;
 
-// ———————————————————————————————————————————————————————————————— balances ——
+// — balances —
 
 /**
  * Ids of transactions that have been cancelled by a reversal.
@@ -272,7 +272,7 @@ export async function computeAccountBalances(
   return out;
 }
 
-// ——————————————————————————————————————————————————————————————————— queries ——
+// — queries —
 
 export async function listAccounts(userId: string, options: { includeArchived?: boolean } = {}) {
   return db.account.findMany({

@@ -35,6 +35,11 @@ export type SessionUser = {
   weekStartsOn: number;
   themePreference: string;
   onboardingCompleted: boolean;
+  /** Profile presentation. See `domains/profile` for why these are separate. */
+  headline: string | null;
+  avatarStyle: string;
+  avatarColor: string;
+  avatarIcon: string | null;
 };
 
 export async function createSession(
@@ -113,6 +118,10 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
           weekStartsOn: true,
           themePreference: true,
           onboardingCompleted: true,
+          headline: true,
+          avatarStyle: true,
+          avatarColor: true,
+          avatarIcon: true,
         },
       },
     },
