@@ -1,5 +1,6 @@
 ﻿import Image from "next/image";
 import Link from "next/link";
+import { GridBackdrop } from "@/components/layout/grid-backdrop";
 import { Wordmark } from "@/components/brand/wordmark";
 
 /**
@@ -151,8 +152,26 @@ export default function LandingPage() {
 
       <main className="mx-auto w-full max-w-6xl px-6">
         {/* ── Hero ────────────────────────────────────────────────────────── */}
-        <section className="pt-16 sm:pt-24">
-          <div className="max-w-3xl">
+        {/*
+          The grid backdrop is scoped to the hero rather than the page. Stretched
+          over the whole document it would compete with the screenshots, which are
+          the actual content; confined to the opening it gives the top of the page
+          texture without following the reader down.
+        */}
+        <section className="relative isolate pt-16 sm:pt-24">
+          {/*
+            Sits behind everything in the section via a negative z-index, and the
+            section establishes its own stacking context with `isolate` so the
+            backdrop cannot escape and cover the sections below.
+
+            It stops above the screenshot figure: the product image is the content
+            here, and a grid showing through it would read as a rendering fault.
+          */}
+          <GridBackdrop
+            className="-left-6 -right-6 -top-16 bottom-40 -z-10 sm:-top-24"
+            cell={32}
+          />
+          <div className="relative max-w-3xl">
             <p className="text-micro font-medium uppercase tracking-[0.14em] text-ink-faint">
               Personal Life OS
             </p>
@@ -188,7 +207,7 @@ export default function LandingPage() {
 
           {/* The product itself, immediately. A description of an application is
               far weaker evidence than the application. */}
-          <figure className="mt-12 overflow-hidden rounded-xl border border-border bg-surface shadow-raised">
+          <figure className="relative z-10 mt-12 overflow-hidden rounded-xl border border-border bg-surface shadow-raised">
             <div className="flex items-center gap-2 border-b border-border-subtle bg-surface-sunken px-4 py-2.5">
               <span className="flex gap-1.5" aria-hidden>
                 <span className="size-2.5 rounded-full bg-border-strong" />
@@ -207,6 +226,16 @@ export default function LandingPage() {
               priority
               className="w-full"
               sizes="(max-width: 1152px) 100vw, 1152px"
+            />
+
+            {/* The screenshots are captured in the light theme, so in dark mode a
+                pure-white panel is a hard rectangle against a near-black page. A
+                slight dim plus a soft inner edge lets it read as a screen rather
+                than a hole. Removed entirely under reduced-motion because the
+                transition is what makes it feel considered rather than abrupt. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-transparent transition-colors duration-slow dark:bg-black/25 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
             />
           </figure>
         </section>

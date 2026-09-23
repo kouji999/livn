@@ -21,6 +21,11 @@
   --color-border-strong: #d3d2ce;
   --color-border-subtle: #eeedea;
 
+  /* Grid backdrop. Deliberately separate from the border tokens: these carry
+     opacity that is tuned for a decorative hairline, not for a UI boundary. */
+  --grid-line: rgba(28, 28, 26, 0.055);
+  --grid-glow: rgba(47, 111, 91, 0.10);
+
   --color-ink: #1c1c1a;
   --color-ink-muted: #55534e;
   --color-ink-subtle: #7d7a74;
@@ -116,6 +121,11 @@
   --color-border-strong: #3d3c39;
   --color-border-subtle: #252423;
 
+  /* A hairline at the light theme's opacity vanishes on this canvas, so the
+     dark grid is drawn stronger and the glow is less saturated. */
+  --grid-line: rgba(242, 241, 239, 0.075);
+  --grid-glow: rgba(108, 191, 161, 0.07);
+
   --color-ink: #f2f1ef;
   --color-ink-muted: #b3b0aa;
   --color-ink-subtle: #8b8880;
@@ -147,6 +157,10 @@
     --color-border: #2e2d2b;
     --color-border-strong: #3d3c39;
     --color-border-subtle: #252423;
+    /* Matches the explicit dark block above. Kept in step by hand because the
+       two share no selector; the verification script checks the count. */
+    --grid-line: rgba(242, 241, 239, 0.075);
+    --grid-glow: rgba(108, 191, 161, 0.07);
     --color-ink: #f2f1ef;
     --color-ink-muted: #b3b0aa;
     --color-ink-subtle: #8b8880;

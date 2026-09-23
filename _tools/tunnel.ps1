@@ -28,6 +28,7 @@ $logDir  = Join-Path $root '.data'
 $outLog  = Join-Path $logDir 'tunnel.out.log'
 $errLog  = Join-Path $logDir 'tunnel.err.log'
 $pidFile = Join-Path $logDir 'tunnel.pid'
+$urlFile = Join-Path $logDir 'tunnel.url.txt'
 $port    = 3777
 
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
@@ -94,6 +95,11 @@ switch ($Action) {
   }
 
   'url' {
+    # The persisted file survives log truncation, so it is the first source.
+    if (Test-Path $urlFile) {
+      $persisted = (Get-Content $urlFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+      if ($persisted) { Write-Output $persisted; break }
+    }
     $url = Get-TunnelUrl
     if ($url) { Write-Output $url } else { Write-Output '(no url yet)' }
   }
@@ -151,6 +157,8 @@ switch ($Action) {
       if ($url) {
         Write-Output ''
         Write-Output "  PUBLIC URL: $url"
+        # Persisted so the link can be retrieved later without re-reading logs.
+        Set-Content -Path $urlFile -Value $url -Encoding ASCII
         Write-Output ''
         break
       }

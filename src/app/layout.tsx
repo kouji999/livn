@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ToastProvider } from "@/components/ui/toast";
@@ -6,7 +6,7 @@ import "../styles/globals.css";
 
 /**
  * Inter is loaded through `next/font` so it is self-hosted, subset and
- * preloaded — no render-blocking request to a third party, and no layout
+ * preloaded â€” no render-blocking request to a third party, and no layout
  * shift when it arrives.
  */
 const inter = Inter({
@@ -42,9 +42,13 @@ export default async function RootLayout({
 }) {
   const user = await getCurrentUser();
 
-  // The theme the user chose must be on <html> before first paint, otherwise
-  // a dark-mode user sees a white flash. A blocking inline script is the only
-  // way to do this correctly with server rendering.
+  // The theme must be on <html> before first paint, otherwise a dark-mode user
+  // sees a white flash. A blocking inline script is the only way to do this
+  // correctly with server rendering.
+  //
+  // A signed-in user's own choice wins. Everyone else follows the OS, including
+  // the public landing page â€” the grid backdrop carries tokens for both palettes
+  // so it reads correctly either way.
   const theme = user?.themePreference ?? "system";
 
   return (

@@ -34,6 +34,30 @@ Finance is one dimension of that loop, not a separate application bolted on besi
 
 ### Screens
 
+<table>
+<tr>
+<td width="50%">
+
+**Light**
+
+<img src="docs/screenshots/landing-01-hero-light.png" alt="Livn landing page, light theme" />
+
+</td>
+<td width="50%">
+
+**Dark**
+
+<img src="docs/screenshots/landing-01-hero-dark.png" alt="Livn landing page, dark theme" />
+
+</td>
+</tr>
+</table>
+
+The hero carries a reactive grid backdrop that drifts toward the pointer, with a soft
+light that follows it. It reads from theme tokens, so both palettes are tuned separately:
+a hairline drawn at the light theme's opacity is invisible on a near-black canvas. The
+effect disabled itself under `prefers-reduced-motion`.
+
 | Screen | What it is for |
 | --- | --- |
 | **Today** | The daily operating surface: priorities, habits, money, progress, reflection |
