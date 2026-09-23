@@ -1,0 +1,135 @@
+{
+  "base": "http://localhost:3777",
+  "capturedAt": "2026-09-23T16:14:13.743Z",
+  "shots": [
+    {
+      "name": "01-today",
+      "route": "/today",
+      "title": "Today",
+      "note": "Priority, habits, money and reflection in one view",
+      "status": 200,
+      "file": "screenshots/01-today.png"
+    },
+    {
+      "name": "02-plan",
+      "route": "/plan",
+      "title": "Plan hub",
+      "note": "Goals and projects in flight",
+      "status": 200,
+      "file": "screenshots/02-plan.png"
+    },
+    {
+      "name": "03-tasks",
+      "route": "/plan/tasks",
+      "title": "Tasks",
+      "note": "Grouped by urgency, not by status",
+      "status": 200,
+      "file": "screenshots/03-tasks.png"
+    },
+    {
+      "name": "04-goals",
+      "route": "/plan/goals",
+      "title": "Goals",
+      "note": "Derived progress with pace",
+      "status": 200,
+      "file": "screenshots/04-goals.png"
+    },
+    {
+      "name": "05-projects",
+      "route": "/plan/projects",
+      "title": "Projects",
+      "note": "Percentage from milestones, not tasks",
+      "status": 200,
+      "file": "screenshots/05-projects.png"
+    },
+    {
+      "name": "06-habits",
+      "route": "/plan/habits",
+      "title": "Habits",
+      "note": "Consistency first, streak second",
+      "status": 200,
+      "file": "screenshots/06-habits.png"
+    },
+    {
+      "name": "07-money",
+      "route": "/money",
+      "title": "Money",
+      "note": "Every balance derived from the ledger",
+      "status": 200,
+      "file": "screenshots/07-money.png"
+    },
+    {
+      "name": "08-ledger",
+      "route": "/money/transactions",
+      "title": "Ledger",
+      "note": "Grouped by day, reversible without erasing",
+      "status": 200,
+      "file": "screenshots/08-ledger.png"
+    },
+    {
+      "name": "09-progress",
+      "route": "/progress",
+      "title": "Progress",
+      "note": "Across day, week, month and year",
+      "status": 200,
+      "file": "screenshots/09-progress.png"
+    },
+    {
+      "name": "10-journal",
+      "route": "/journal",
+      "title": "Journal",
+      "note": "Mood, reflection, and optional depth",
+      "status": 200,
+      "file": "screenshots/10-journal.png"
+    },
+    {
+      "name": "11-timeline",
+      "route": "/journal/timeline",
+      "title": "Timeline",
+      "note": "Every domain in one chronology",
+      "status": 200,
+      "file": "screenshots/11-timeline.png"
+    },
+    {
+      "name": "12-login",
+      "route": "/login",
+      "title": "Sign in",
+      "note": "The entry point",
+      "status": 200,
+      "file": "screenshots/12-login.png"
+    },
+    {
+      "name": "m1-today",
+      "route": "/today",
+      "title": "Today (mobile)",
+      "note": "Mobile layout",
+      "status": 200,
+      "file": "screenshots/m1-today.png"
+    },
+    {
+      "name": "m2-tasks",
+      "route": "/plan/tasks",
+      "title": "Tasks (mobile)",
+      "note": "Mobile layout",
+      "status": 200,
+      "file": "screenshots/m2-tasks.png"
+    },
+    {
+      "name": "m3-money",
+      "route": "/money",
+      "title": "Money (mobile)",
+      "note": "Mobile layout",
+      "status": 200,
+      "file": "screenshots/m3-money.png"
+    },
+    {
+      "name": "m4-journal",
+      "route": "/journal",
+      "title": "Journal (mobile)",
+      "note": "Mobile layout",
+      "status": 200,
+      "file": "screenshots/m4-journal.png"
+    }
+  ],
+  "problems": []
+}

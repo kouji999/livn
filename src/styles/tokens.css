@@ -1,0 +1,168 @@
+/**
+ * Livn design tokens.
+ *
+ * Single source of truth for every visual constant in the product.
+ * Components must reference tokens (directly or via Tailwind aliases from
+ * `tailwind.config.ts`) and never hard-code colors, spacing or durations.
+ *
+ * Direction: calm, minimal, premium. Neutral base, one restrained accent.
+ */
+
+:root {
+  /* ---------------------------------------------------------------- color */
+  /* Neutral canvas — light theme. Slightly warm greys keep long journal and
+     ledger reading sessions comfortable. */
+  --color-canvas: #fafaf9;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #f4f4f2;
+
+  --color-border: #e5e4e1;
+  --color-border-strong: #d3d2ce;
+  --color-border-subtle: #eeedea;
+
+  --color-ink: #1c1c1a;
+  --color-ink-muted: #55534e;
+  --color-ink-subtle: #7d7a74;
+  --color-ink-faint: #a8a5a0;
+  --color-ink-inverse: #ffffff;
+
+  /* One restrained accent. Used for focus, primary action, selection. */
+  --color-accent: #2f6f5b;
+  --color-accent-hover: #275e4d;
+  --color-accent-soft: #e8f1ed;
+  --color-accent-ink: #ffffff;
+
+  /* Semantic states — used for money direction and system feedback only. */
+  --color-positive: #2f6f5b;
+  --color-positive-soft: #e8f1ed;
+  --color-negative: #a8443a;
+  --color-negative-soft: #f8ebe9;
+  --color-warning: #9a6a1f;
+  --color-warning-soft: #f9f1e2;
+  --color-info: #3a5f8a;
+  --color-info-soft: #ebf0f6;
+
+  /* ------------------------------------------------------------- typography */
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Inter, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --text-micro: 0.6875rem; /* 11px — metadata, table labels */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.8125rem; /* 13px — dense UI text */
+  --text-base: 0.875rem; /* 14px — default UI text */
+  --text-lg: 1rem; /* 16px — card titles */
+  --text-xl: 1.25rem; /* 20px — section headings */
+  --text-2xl: 1.625rem; /* 26px — page titles */
+  --text-3xl: 2.125rem; /* 34px — hero numbers, Today greeting */
+
+  --leading-micro: 1rem;
+  --leading-xs: 1.125rem;
+  --leading-sm: 1.25rem;
+  --leading-base: 1.375rem;
+  --leading-lg: 1.5rem;
+  --leading-xl: 1.75rem;
+  --leading-2xl: 2rem;
+  --leading-3xl: 2.5rem;
+
+  /* --------------------------------------------------------------- spacing */
+  /* 4px base grid. Components should compose these rather than invent gaps. */
+  --space-0-5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-18: 4.5rem;
+
+  /* ---------------------------------------------------------------- radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* --------------------------------------------------------------- shadows */
+  /* Restrained. Borders carry most of the separation work. */
+  --shadow-subtle: 0 1px 2px rgba(28, 28, 26, 0.04);
+  --shadow-raised: 0 1px 3px rgba(28, 28, 26, 0.06),
+    0 4px 12px rgba(28, 28, 26, 0.04);
+  --shadow-overlay: 0 8px 32px rgba(28, 28, 26, 0.12),
+    0 2px 8px rgba(28, 28, 26, 0.06);
+
+  /* ---------------------------------------------------------------- motion */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-theme="dark"] {
+  --color-canvas: #131312;
+  --color-surface: #1a1a19;
+  --color-surface-raised: #201f1e;
+  --color-surface-sunken: #0e0e0d;
+
+  --color-border: #2e2d2b;
+  --color-border-strong: #3d3c39;
+  --color-border-subtle: #252423;
+
+  --color-ink: #f2f1ef;
+  --color-ink-muted: #b3b0aa;
+  --color-ink-subtle: #8b8880;
+  --color-ink-faint: #67645e;
+  --color-ink-inverse: #131312;
+
+  --color-accent: #6cbfa1;
+  --color-accent-hover: #7fceae;
+  --color-accent-soft: #1d2f29;
+  --color-accent-ink: #10201a;
+
+  --color-positive: #6cbfa1;
+  --color-positive-soft: #1d2f29;
+  --color-negative: #d98276;
+  --color-negative-soft: #33211e;
+  --color-warning: #d3a45e;
+  --color-warning-soft: #32281a;
+  --color-info: #85a9d3;
+  --color-info-soft: #1c2733;
+}
+
+/* Respect the OS preference unless the user picked a theme explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-canvas: #131312;
+    --color-surface: #1a1a19;
+    --color-surface-raised: #201f1e;
+    --color-surface-sunken: #0e0e0d;
+    --color-border: #2e2d2b;
+    --color-border-strong: #3d3c39;
+    --color-border-subtle: #252423;
+    --color-ink: #f2f1ef;
+    --color-ink-muted: #b3b0aa;
+    --color-ink-subtle: #8b8880;
+    --color-ink-faint: #67645e;
+    --color-ink-inverse: #131312;
+    --color-accent: #6cbfa1;
+    --color-accent-hover: #7fceae;
+    --color-accent-soft: #1d2f29;
+    --color-accent-ink: #10201a;
+    --color-positive: #6cbfa1;
+    --color-positive-soft: #1d2f29;
+    --color-negative: #d98276;
+    --color-negative-soft: #33211e;
+    --color-warning: #d3a45e;
+    --color-warning-soft: #32281a;
+    --color-info: #85a9d3;
+    --color-info-soft: #1c2733;
+  }
+}

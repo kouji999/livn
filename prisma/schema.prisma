@@ -1,0 +1,964 @@
+// Livn — Personal Life OS
+// Prisma schema. Domain-organized so each block maps to `src/domains/*`.
+//
+// Conventions used throughout:
+//   • Every user-owned row carries `userId` for ownership scoping and indexing.
+//   • Money is stored as integer minor units (sen/cents) plus a currency code.
+//     Floats are never used for balances or amounts.
+//   • Soft deletion is done with `deletedAt` where history must survive.
+//   • Financial rows are never silently mutated; corrections are new rows.
+//   • All timestamps are UTC. Calendar-day concepts store a `Date` at midnight.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IDENTITY
+// ═══════════════════════════════════════════════════════════════════════════
+
+model User {
+  id            String  @id @default(cuid())
+  email         String  @unique
+  passwordHash  String
+  displayName   String
+  timeZone      String  @default("Asia/Jakarta")
+  locale        String  @default("id-ID")
+  currency      String  @default("IDR")
+
+  // Preferences that shape presentation only — never business logic.
+  weekStartsOn        Int     @default(1) // 1 = Monday
+  themePreference     String  @default("system") // system | light | dark
+  onboardingCompleted Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lastSeenAt DateTime?
+
+  sessions Session[]
+
+  areas         Area[]
+  goals         Goal[]
+  projects      Project[]
+  milestones    Milestone[]
+  tasks         Task[]
+  habits        Habit[]
+  habitLogs     HabitLog[]
+  journalEntries JournalEntry[]
+  lifeEvents    LifeEvent[]
+  attachments   Attachment[]
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  budgets       Budget[]
+  savingsGoals  SavingsGoal[]
+  recurringRules RecurringRule[]
+  monthlyPlans  MonthlyPlan[]
+  reviews       Review[]
+  insights      Insight[]
+
+  @@index([createdAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  // Only the hash of the session token is persisted, so a database leak does
+  // not hand out usable credentials.
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  userAgent String?
+  ipAddress String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLAN HIERARCHY — Area → Goal → Project → Milestone → Task
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Area {
+  id          String  @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  // Token key (not a hex value) so theming stays in the design system.
+  colorToken  String  @default("accent")
+  iconName    String?
+  position    Int     @default(0)
+
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goals    Goal[]
+  projects Project[]
+  tasks    Task[]
+  habits   Habit[]
+  budgets  Budget[]
+  monthlyTargets MonthlyPlanTarget[] @relation("MonthlyTargetArea")
+  lifeEvents LifeEvent[]
+
+  @@unique([userId, name])
+  @@index([userId, archivedAt])
+}
+
+model Goal {
+  id          String  @id @default(cuid())
+  userId      String
+  areaId      String?
+  title       String
+  description String?
+
+  // Goal progress is polymorphic: `targetValue`/`currentValue` are decimals so
+  // currency (in major units), counts and durations share one representation.
+  goalType    GoalType @default(BINARY)
+  targetValue Decimal? @db.Decimal(18, 4)
+  currentValue Decimal @default(0) @db.Decimal(18, 4)
+  unit        String?
+  // When true, `currentValue` is recomputed from linked tasks/habits/projects
+  // instead of being edited by hand. Derived goals ignore manual writes.
+  isDerived   Boolean  @default(false)
+  derivationKey String? // e.g. "task.completed.count", "habit.sessions"
+
+  startDate   DateTime?
+  targetDate  DateTime?
+  status      GoalStatus @default(ACTIVE)
+  priority    Priority   @default(MEDIUM)
+  notes       String?
+
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area      Area?      @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  projects  Project[]
+  tasks     Task[]
+  habits    Habit[]
+  journalEntries JournalEntryGoal[]
+  lifeEvents LifeEvent[]
+  savingsGoals SavingsGoal[]
+  monthlyTargets MonthlyPlanTarget[] @relation("MonthlyTargetGoal")
+
+  @@index([userId, status])
+  @@index([userId, areaId])
+  @@index([targetDate])
+}
+
+model Project {
+  id          String  @id @default(cuid())
+  userId      String
+  areaId      String?
+  goalId      String?
+  title       String
+  description String?
+
+  status      ProjectStatus @default(PLANNED)
+  startDate   DateTime?
+  targetDate  DateTime?
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area       Area?       @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  goal       Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  milestones Milestone[]
+  tasks      Task[]
+  journalEntries JournalEntryProject[]
+  lifeEvents LifeEvent[]
+
+  @@index([userId, status])
+  @@index([userId, goalId])
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String
+  title       String
+  description String?
+  dueDate     DateTime?
+  position    Int      @default(0)
+
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([userId, projectId])
+}
+
+model Task {
+  id          String  @id @default(cuid())
+  userId      String
+  areaId      String?
+  goalId      String?
+  projectId   String?
+  milestoneId String?
+
+  title       String
+  description String?
+  notes       String?
+
+  status      TaskStatus @default(INBOX)
+  priority    Priority   @default(MEDIUM)
+
+  // `dueDate` is an instant; `scheduledFor` is a calendar day used by the
+  // Today/Plan views. Keeping them apart avoids timezone drift on due times.
+  dueDate        DateTime?
+  scheduledFor   DateTime?
+  estimatedMinutes Int?
+  position    Int @default(0)
+
+  completedAt DateTime?
+  skippedAt   DateTime?
+  archivedAt  DateTime?
+
+  // Recurrence is expressed as a rule reference so the generator can be
+  // reused by finance and habits rather than duplicated per domain.
+  recurrenceId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area      Area?      @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  goal      Goal?      @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestone Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  recurrence RecurringRule? @relation("TaskRecurrence", fields: [recurrenceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([userId, scheduledFor])
+  @@index([userId, dueDate])
+  @@index([userId, projectId])
+  @@index([userId, goalId])
+}
+
+model MonthlyPlan {
+  id     String @id @default(cuid())
+  userId String
+
+  // First day of the planned month, stored at midnight UTC.
+  monthStart DateTime @db.Date
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targets  MonthlyPlanTarget[]
+
+  @@unique([userId, monthStart])
+}
+
+/// A single measurable commitment for a month. Progress is *derived* from the
+/// linked entity, never stored — `metric` tells the analytics layer how.
+model MonthlyPlanTarget {
+  id            String @id @default(cuid())
+  monthlyPlanId String
+  userId        String
+
+  label         String
+  metric        MonthlyMetric
+  targetValue   Decimal @db.Decimal(18, 4)
+  unit          String?
+
+  habitId  String?
+  goalId   String?
+  areaId   String?
+  categoryId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  monthlyPlan MonthlyPlan @relation(fields: [monthlyPlanId], references: [id], onDelete: Cascade)
+  habit       Habit?      @relation(fields: [habitId], references: [id], onDelete: SetNull)
+  goal        Goal?       @relation("MonthlyTargetGoal", fields: [goalId], references: [id], onDelete: SetNull)
+  area        Area?       @relation("MonthlyTargetArea", fields: [areaId], references: [id], onDelete: SetNull)
+  category    Category?   @relation("MonthlyTargetCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([monthlyPlanId])
+  @@index([habitId])
+  @@index([goalId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HABITS
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Habit {
+  id          String @id @default(cuid())
+  userId      String
+  areaId      String?
+  goalId      String?
+
+  name        String
+  description String?
+
+  // "Exercise 4 times per week" → frequency=WEEKLY, targetCount=4
+  frequency   HabitFrequency @default(DAILY)
+  targetCount Int            @default(1)
+  /// For WEEKLY/MONTHLY habits, which weekdays count (0=Sun..6=Sat).
+  /// Empty means "any day".
+  scheduleDays Int[]        @default([])
+
+  trackingMethod HabitTracking @default(BOOLEAN)
+  unit        String?
+  targetValue Decimal? @db.Decimal(18, 4)
+
+  colorToken  String @default("accent")
+  iconName    String?
+
+  startDate   DateTime @db.Date
+  endDate     DateTime? @db.Date
+  archivedAt  DateTime?
+  position    Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area     Area?       @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  goal     Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  logs     HabitLog[]
+  monthlyTargets MonthlyPlanTarget[]
+
+  @@index([userId, archivedAt])
+  @@index([userId, areaId])
+}
+
+/// One calendar day of habit activity. Unique per habit+day so a duplicate
+/// submission is rejected by the database rather than handled in UI code.
+model HabitLog {
+  id      String @id @default(cuid())
+  userId  String
+  habitId String
+
+  date    DateTime @db.Date
+  completed Boolean @default(true)
+  value   Decimal? @db.Decimal(18, 4)
+  note    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([userId, date])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JOURNAL & LIFE MEMORY
+// ═══════════════════════════════════════════════════════════════════════════
+
+model JournalEntry {
+  id      String @id @default(cuid())
+  userId  String
+
+  /// One entry per calendar day. `date` is the day the entry describes.
+  date    DateTime @db.Date
+  title   String?
+  body    String
+
+  // Optional — friction matters more than completeness here.
+  mood    Int?
+  energy  Int?
+  focus   Int?
+
+  // Journal-specific reflection prompts from the review flow.
+  wentWell    String?
+  wentPoorly  String?
+  changeNext  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags     JournalTag[]
+  goals    JournalEntryGoal[]
+  projects JournalEntryProject[]
+  events   LifeEvent[]
+  attachments Attachment[]
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model Tag {
+  id     String @id @default(cuid())
+  userId String
+  name   String
+  slug   String
+
+  createdAt DateTime @default(now())
+
+  journalEntries JournalTag[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+}
+
+model JournalTag {
+  journalEntryId String
+  tagId          String
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([journalEntryId, tagId])
+  @@index([tagId])
+}
+
+model JournalEntryGoal {
+  journalEntryId String
+  goalId         String
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  goal         Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@id([journalEntryId, goalId])
+  @@index([goalId])
+}
+
+model JournalEntryProject {
+  journalEntryId String
+  projectId      String
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([journalEntryId, projectId])
+  @@index([projectId])
+}
+
+model LifeEvent {
+  id     String @id @default(cuid())
+  userId String
+
+  title       String
+  description String?
+  date        DateTime @db.Date
+  category    LifeEventCategory @default(OTHER)
+  // Where the event sits on the long-term timeline: a milestone worth keeping.
+  isMilestone Boolean @default(false)
+
+  areaId    String?
+  goalId    String?
+  projectId String?
+  journalEntryId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area         Area?        @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  goal         Goal?        @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  attachments  Attachment[]
+
+  @@index([userId, date])
+  @@index([userId, category])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FINANCE — ledger based. Balances are always derived, never stored as truth.
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Account {
+  id     String @id @default(cuid())
+  userId String
+
+  name           String
+  type           AccountType @default(CASH)
+  currency       String      @default("IDR")
+  /// Minor units (IDR sen). The only non-transaction input to a balance.
+  openingBalance BigInt      @default(0)
+  /// Optional bank/issuer metadata for the account detail screen.
+  institution    String?
+  accountNumberLast4 String?
+  colorToken     String @default("accent")
+  iconName       String?
+
+  /// Soft close: hidden from pickers but history and balance remain.
+  closedAt  DateTime?
+  archivedAt DateTime?
+  position  Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]       @relation("TransferFrom")
+  incomingTransfers Transaction[]       @relation("TransferTo")
+  recurringFrom     RecurringRule[]     @relation("RecurringFrom")
+  recurringTo       RecurringRule[]     @relation("RecurringTo")
+  savingsGoals      SavingsGoal[]
+
+  @@unique([userId, name])
+  @@index([userId, archivedAt])
+  @@index([userId, closedAt])
+}
+
+model Category {
+  id     String @id @default(cuid())
+  userId String
+  parentId String?
+
+  name        String
+  slug        String
+  kind        CategoryKind @default(EXPENSE)
+  colorToken  String @default("accent")
+  iconName    String?
+  /// Default categories are seeded per user and protected from accidental
+  /// deletion; users may archive them or add their own.
+  isSystem    Boolean @default(false)
+  archivedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  transactions Transaction[]
+  budgets  Budget[]
+  recurringRules RecurringRule[]
+  monthlyTargets MonthlyPlanTarget[] @relation("MonthlyTargetCategory")
+
+  @@unique([userId, slug])
+  @@index([userId, kind, archivedAt])
+  @@index([userId, parentId])
+}
+
+model Transaction {
+  id     String @id @default(cuid())
+  userId String
+
+  type        TransactionType
+  /// Always positive. `type` carries the direction, so an expense of 50000 is
+  /// stored as amount=50000 and never as -50000.
+  amount      BigInt
+  currency    String @default("IDR")
+  /// Rate applied when `currency` differs from the account currency.
+  fxRate      Decimal? @db.Decimal(18, 8)
+
+  accountId   String
+  /// Transfer destination. Populated only when type = TRANSFER.
+  toAccountId String?
+  categoryId  String?
+
+  occurredAt  DateTime
+  /// Calendar day of `occurredAt` in the user's time zone, denormalised so
+  /// day/month aggregations are index-friendly and timezone-stable.
+  occurredOn  DateTime @db.Date
+
+  description String?
+  payee       String?
+  notes       String?
+
+  /// Links a generated row back to the rule that produced it, so the UI can
+  /// distinguish expected vs actual and avoid duplicate generation.
+  recurringRuleId String?
+  /// Set when the row was generated ahead of time by a recurring rule.
+  isProjected Boolean @default(false)
+  /// Free-form ledger grouping — e.g. the id of the transaction this corrects.
+  reversesTransactionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account    Account    @relation("TransferFrom", fields: [accountId], references: [id], onDelete: Restrict)
+  toAccount  Account?   @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: Restrict)
+  category   Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringRule RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  attachments Attachment[]
+
+  @@index([userId, occurredOn])
+  @@index([userId, type, occurredOn])
+  @@index([userId, accountId, occurredOn])
+  @@index([userId, categoryId, occurredOn])
+  @@index([accountId])
+  @@index([toAccountId])
+}
+
+model Budget {
+  id     String @id @default(cuid())
+  userId String
+
+  /// First day of the budget period. Monthly by default; `period` allows
+  /// weekly/yearly without a separate table.
+  periodStart DateTime @db.Date
+  period      BudgetPeriod @default(MONTHLY)
+  amount      BigInt
+  currency    String @default("IDR")
+
+  categoryId String?
+  areaId     String?
+  /// Warn at this share of the budget (0..1). Presentation only.
+  warnThreshold Decimal @default(0.8) @db.Decimal(4, 3)
+
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  area     Area?     @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, periodStart, period, categoryId])
+  @@index([userId, periodStart])
+}
+
+model SavingsGoal {
+  id     String @id @default(cuid())
+  userId String
+
+  name        String
+  description String?
+  targetAmount BigInt
+  /// Manual amount for unlinked goals. When `accountId` is set, progress comes
+  /// from that account's derived balance plus `manualAdjustment`.
+  currentAmount BigInt @default(0)
+  currency    String @default("IDR")
+
+  accountId String?
+  goalId    String?
+
+  targetDate DateTime? @db.Date
+  startDate  DateTime  @default(now()) @db.Date
+
+  status     SavingsStatus @default(ACTIVE)
+  colorToken String @default("accent")
+  iconName   String?
+
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  goal    Goal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+}
+
+/// Recurrence definition shared by tasks and transactions.
+model RecurringRule {
+  id     String @id @default(cuid())
+  userId String
+
+  name        String
+  frequency   RecurrenceFrequency
+  /// Every N periods (e.g. every 2 weeks).
+  interval    Int @default(1)
+  /// Weekly: which weekdays (0=Sun..6=Sat). Monthly: day-of-month in `dayOfMonth`.
+  weekdays    Int[] @default([])
+  dayOfMonth  Int?
+  monthOfYear Int?
+
+  startsOn DateTime @db.Date
+  endsOn   DateTime? @db.Date
+  /// Skip dates the user marked as skipped, stored as ISO `yyyy-MM-dd`.
+  exceptions String[] @default([])
+  nextRunAt  DateTime? @db.Date
+
+  // Transaction-shaped rules.
+  transactionType TransactionType?
+  amount          BigInt?
+  accountId       String?
+  toAccountId     String?
+  categoryId      String?
+  description     String?
+  payee           String?
+
+  // Task-shaped rules.
+  taskTitle       String?
+  taskPriority    Priority?
+  taskEstimateMinutes Int?
+
+  /// Auto-post expected rows `leadDays` ahead of the run date so forecasts and
+  /// reminders can see them without pretending they are actual money.
+  autoPost  Boolean @default(false)
+  leadDays  Int     @default(0)
+
+  archivedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   Account?      @relation("RecurringFrom", fields: [accountId], references: [id], onDelete: SetNull)
+  toAccount Account?      @relation("RecurringTo", fields: [toAccountId], references: [id], onDelete: SetNull)
+  category  Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+  tasks     Task[]        @relation("TaskRecurrence")
+
+  @@index([userId, archivedAt])
+  @@index([userId, nextRunAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REVIEWS & INSIGHTS — outputs of the analytics layer, with provenance.
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Review {
+  id     String @id @default(cuid())
+  userId String
+
+  kind        ReviewKind
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+
+  /// Frozen snapshot of computed metrics at review time. Stored so a review
+  /// keeps meaning even if earlier records are later corrected.
+  snapshot Json
+
+  // User-authored reflection — always distinct from computed data.
+  whatWentWell    String?
+  whatDidNot      String?
+  whatShouldChange String?
+  nextPriorities  String?
+
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, periodStart])
+  @@index([userId, periodStart])
+}
+
+/// A deterministic observation derived from real records. `evidence` holds the
+/// query parameters that produced it so any insight can be traced back.
+model Insight {
+  id     String @id @default(cuid())
+  userId String
+
+  kind       String
+  severity   InsightSeverity @default(INFO)
+  title      String
+  body       String
+  evidence   Json?
+  periodStart DateTime? @db.Date
+  periodEnd   DateTime? @db.Date
+
+  dismissedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, periodStart])
+  @@index([userId, dismissedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTACHMENTS — storage-provider agnostic.
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Attachment {
+  id     String @id @default(cuid())
+  userId String
+
+  /// Which storage driver holds the bytes, plus the opaque key within it.
+  storageDriver String @default("local")
+  storageKey    String
+
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  kind        AttachmentKind @default(FILE)
+  /// External link attachments carry a URL and no stored bytes.
+  externalUrl String?
+  checksum    String?
+
+  journalEntryId String?
+  lifeEventId    String?
+  transactionId  String?
+
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  lifeEvent    LifeEvent?    @relation(fields: [lifeEventId], references: [id], onDelete: Cascade)
+  transaction  Transaction?  @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([journalEntryId])
+  @@index([lifeEventId])
+  @@index([transactionId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENUMS
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum GoalType {
+  BINARY
+  NUMERIC
+  PERCENTAGE
+  CURRENCY
+  COUNT
+  CUSTOM
+}
+
+enum GoalStatus {
+  PLANNED
+  ACTIVE
+  PAUSED
+  ACHIEVED
+  MISSED
+  ARCHIVED
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  INBOX
+  PLANNED
+  TODAY
+  COMPLETED
+  SKIPPED
+  ARCHIVED
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum HabitTracking {
+  BOOLEAN
+  COUNT
+  DURATION
+  QUANTITY
+}
+
+enum MonthlyMetric {
+  TASK_COMPLETION
+  HABIT_SESSIONS
+  SAVINGS_AMOUNT
+  INCOME_AMOUNT
+  EXPENSE_LIMIT
+  CUSTOM
+}
+
+enum LifeEventCategory {
+  HEALTH
+  CAREER
+  FINANCE
+  RELATIONSHIP
+  LEARNING
+  BUSINESS
+  PERSONAL
+  MILESTONE
+  OTHER
+}
+
+enum AccountType {
+  CASH
+  BANK
+  E_WALLET
+  INVESTMENT
+  CRYPTO
+  CREDIT
+  OTHER
+}
+
+enum CategoryKind {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum SavingsStatus {
+  ACTIVE
+  ACHIEVED
+  PAUSED
+  ARCHIVED
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum ReviewKind {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum InsightSeverity {
+  INFO
+  POSITIVE
+  WARNING
+  CRITICAL
+}
+
+enum AttachmentKind {
+  IMAGE
+  DOCUMENT
+  LINK
+  FILE
+}
